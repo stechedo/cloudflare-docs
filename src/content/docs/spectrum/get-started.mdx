@@ -16,6 +16,16 @@ To create a Spectrum application, you can either use an IP address, a CNAME Reco
 
 Certain fields in Spectrum request and response bodies require an Enterprise plan. Refer to the [Settings by plan](/spectrum/reference/settings-by-plan/) page for more details.
 
+## Before you create your first Spectrum application
+
+1. **Confirm protocol support.** Spectrum supports TCP, UDP, HTTP, and HTTPS applications. Not every port is available on every plan; verify that your desired port is supported before you start.
+2. **Choose how clients will reach the application.**
+   - For **TCP/UDP** applications, clients connect to a Cloudflare Spectrum anycast IP address and port. You can create a DNS record that points a hostname to that IP, but routing is based on the IP and port, not the hostname.
+   - For **HTTP/HTTPS** applications, clients connect through a Cloudflare-proxied hostname.
+3. **Check SSL/TLS requirements.** [Universal SSL](/ssl/edge-certificates/universal-ssl/) is not compatible with Spectrum. HTTPS applications need an [advanced certificate](/ssl/edge-certificates/advanced-certificate-manager/) or a [custom certificate](/ssl/edge-certificates/custom-certificates/).
+4. **Make sure the origin is reachable.** The origin must accept traffic from Cloudflare. If the origin is private and you want to use Cloudflare Tunnel, remember that Tunnel is only supported directly for HTTP/HTTPS Spectrum applications. For non-HTTP traffic, route Spectrum through a [Cloudflare Load Balancer with Private Network Load Balancing](/load-balancing/private-network/) instead.
+5. **Allow Cloudflare IP ranges.** Configure any origin firewall to allow Cloudflare’s IP ranges on the origin port.
+
 ## Create a Spectrum application using an IP address
 
 To create a Spectrum application using an IP address, Cloudflare normally assigns you an arbitrary IP from Cloudflare’s IP pool to your application. If you want to use your own IP addresses, you can use [BYOIP](/spectrum/about/byoip/) or you can also use a [Static IP](/spectrum/about/static-ip/). In these two last cases, you need to create your Spectrum application through the API, as these features are not available via dash. When using the API, the field `origin_direct` takes as input the IP address.
@@ -281,6 +291,34 @@ Set `origin_direct` to the private IP of your origin and `virtual_network_id` to
 ```
 
 </Details>
+
+## Non-HTTP protocol guidance
+
+Spectrum is often used for protocols other than HTTP/HTTPS. The general pattern is the same: create a TCP or UDP application, publish the Spectrum IP and port, and ensure the origin service is listening and reachable.
+
+| Use case | Recommended Spectrum type | Common notes |
+|---|---|---|
+| SFTP | TCP | Use the SSH/SFTP port (commonly 22). Clients connect to the Spectrum IP/hostname and port. |
+| SMPP | TCP | Create a TCP application on the SMPP port your service uses. |
+| Minecraft Java Edition | TCP | Minecraft Java Edition is supported on the standard port (25565). Minecraft Bedrock Edition is **not** supported. |
+| Remote desktop / AnyDesk-like tools | TCP and/or UDP | Verify the tool uses fixed inbound ports and is not purely peer-to-peer/NAT-traversal. Spectrum proxies inbound connections to the configured origin. |
+
+## Common first-setup mistakes
+
+- Selecting **HTTP** or **HTTPS** for traffic that is not HTTP-based.
+- Using **Universal SSL** with Spectrum.
+- Pointing a non-HTTP Spectrum application’s origin directly to a Cloudflare Tunnel subdomain (`<UUID>.cfargotunnel.com`).
+- Expecting hostname-based routing for TCP/UDP applications. Spectrum routes these by IP address and port.
+- Sending fragmented UDP packets. Cloudflare does not support UDP packet fragmentation; fragmented packets are dropped.
+
+## Quick troubleshooting checklist
+
+1. The Spectrum application shows as **Active** in the dashboard.
+2. DNS resolves to the Spectrum IP (TCP/UDP) or to a proxied hostname (HTTP/HTTPS).
+3. The origin is listening on the configured port and protocol.
+4. The origin firewall allows Cloudflare IP ranges.
+5. The client is using the same protocol and port configured in Spectrum.
+6. For HTTPS, the certificate is valid and covers the hostname.
 
 ## View traffic
 
