@@ -18,12 +18,12 @@ Certain fields in Spectrum request and response bodies require an Enterprise pla
 
 ## Before you create your first Spectrum application
 
-1. **Confirm protocol support.** Spectrum supports TCP, UDP, HTTP, and HTTPS applications. Not every port is available on every plan; verify that your desired port is supported before you start.
+1. **Confirm protocol support.** Spectrum supports TCP, UDP, HTTP, and HTTPS applications. Not every port is available on every plan. Refer to [Configuration options](/spectrum/reference/configuration-options/) and [Settings by plan](/spectrum/reference/settings-by-plan/) to verify that your desired port and protocol are supported before you start.
 2. **Choose how clients will reach the application.**
-   - For **TCP/UDP** applications, clients connect to a Cloudflare Spectrum anycast IP address and port. You can create a DNS record that points a hostname to that IP, but routing is based on the IP and port, not the hostname.
+   - For **TCP/UDP** applications, clients connect to a Cloudflare Spectrum anycast IP address and port. Spectrum creates a DNS record automatically, and routing is based on the IP and port, not the hostname. Because Spectrum IPs are not static, always use the DNS name of your Spectrum application rather than hardcoding the IP address.
    - For **HTTP/HTTPS** applications, clients connect through a Cloudflare-proxied hostname.
 3. **Check SSL/TLS requirements.** [Universal SSL](/ssl/edge-certificates/universal-ssl/) is not compatible with Spectrum. HTTPS applications need an [advanced certificate](/ssl/edge-certificates/advanced-certificate-manager/) or a [custom certificate](/ssl/edge-certificates/custom-certificates/).
-4. **Make sure the origin is reachable.** The origin must accept traffic from Cloudflare. If the origin is private and you want to use Cloudflare Tunnel, remember that Tunnel is only supported directly for HTTP/HTTPS Spectrum applications. For non-HTTP traffic, route Spectrum through a [Cloudflare Load Balancer with Private Network Load Balancing](/load-balancing/private-network/) instead.
+4. **Make sure the origin is reachable.** The origin must accept traffic from Cloudflare. If the origin is private, you have two options for non-HTTP traffic: attach Spectrum directly to a [virtual network origin](/spectrum/get-started/#create-a-spectrum-application-using-a-virtual-network-origin) (simplest), or route through a [Cloudflare Load Balancer with Private Network Load Balancing](/load-balancing/private-network/) when you also need load balancing. Note that using Cloudflare Tunnel directly as a Spectrum origin is only supported for [HTTP/HTTPS applications](/spectrum/reference/limitations/#cloudflare-tunnel).
 5. **Allow Cloudflare IP ranges.** Configure any origin firewall to allow Cloudflare’s IP ranges on the origin port.
 
 ## Create a Spectrum application using an IP address
@@ -296,20 +296,26 @@ Set `origin_direct` to the private IP of your origin and `virtual_network_id` to
 
 Spectrum is often used for protocols other than HTTP/HTTPS. The general pattern is the same: create a TCP or UDP application, publish the Spectrum IP and port, and ensure the origin service is listening and reachable.
 
-| Use case | Recommended Spectrum type | Common notes |
-|---|---|---|
-| SFTP | TCP | Use the SSH/SFTP port (commonly 22). Clients connect to the Spectrum IP/hostname and port. |
-| SMPP | TCP | Create a TCP application on the SMPP port your service uses. |
-| Minecraft Java Edition | TCP | Minecraft Java Edition is supported on the standard port (25565). Minecraft Bedrock Edition is **not** supported. |
-| Remote desktop / AnyDesk-like tools | TCP and/or UDP | Verify the tool uses fixed inbound ports and is not purely peer-to-peer/NAT-traversal. Spectrum proxies inbound connections to the configured origin. |
+| Use case                            | Recommended Spectrum type | Common notes                                                                                                                                                                                                               |
+| ----------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SSH / SFTP                          | TCP                       | Use port 22 (or your configured SSH port). Clients connect to the Spectrum DNS name and port.                                                                                                                              |
+| RDP                                 | TCP                       | Use port 3389. Clients point their remote desktop client at the Spectrum DNS name.                                                                                                                                         |
+| SMTP (inbound)                      | TCP                       | Inbound SMTP works with [extra configuration](/spectrum/reference/configuration-options/#smtp). Outbound SMTP is not supported. Spectrum does not have reverse DNS entries, so receiving mail servers may reject messages. |
+| DNS                                 | UDP                       | Requires UDP to be enabled for the zone. Use port 53.                                                                                                                                                                      |
+| WireGuard                           | UDP                       | Requires UDP to be enabled for the zone. Use port 51820 (default).                                                                                                                                                         |
+| SMPP                                | TCP                       | Create a TCP application on the SMPP port your service uses.                                                                                                                                                               |
+| Minecraft Java Edition              | TCP                       | Minecraft Java Edition is supported on the standard port (25565). Minecraft Bedrock Edition is **not** supported. Refer to [Limitations](/spectrum/reference/limitations/#minecraft).                                      |
+| Remote desktop / AnyDesk-like tools | TCP and/or UDP            | Verify the tool uses fixed inbound ports and is not purely peer-to-peer or NAT-traversal based. Spectrum proxies inbound connections to the configured origin.                                                             |
 
 ## Common first-setup mistakes
 
 - Selecting **HTTP** or **HTTPS** for traffic that is not HTTP-based.
-- Using **Universal SSL** with Spectrum.
-- Pointing a non-HTTP Spectrum application’s origin directly to a Cloudflare Tunnel subdomain (`<UUID>.cfargotunnel.com`).
+- Using [Universal SSL](/ssl/edge-certificates/universal-ssl/) with Spectrum. Use an [advanced certificate](/ssl/edge-certificates/advanced-certificate-manager/) or a [custom certificate](/ssl/edge-certificates/custom-certificates/) instead.
+- Pointing a non-HTTP Spectrum application's origin directly to a Cloudflare Tunnel subdomain (`<UUID>.cfargotunnel.com`). Refer to [Cloudflare Tunnel limitations](/spectrum/reference/limitations/#cloudflare-tunnel) for supported configurations.
 - Expecting hostname-based routing for TCP/UDP applications. Spectrum routes these by IP address and port.
-- Sending fragmented UDP packets. Cloudflare does not support UDP packet fragmentation; fragmented packets are dropped.
+- Sending fragmented UDP packets. Cloudflare does not support [UDP packet fragmentation](/spectrum/reference/limitations/#udp); fragmented packets are dropped.
+
+For the full list of constraints, refer to [Limitations](/spectrum/reference/limitations/).
 
 ## Quick troubleshooting checklist
 
